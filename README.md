@@ -6,6 +6,15 @@
 
 仓库：https://github.com/fzs123197/ai-quota-gateway
 
+## 下载预编译版本
+
+Releases：https://github.com/fzs123197/ai-quota-gateway/releases
+
+- **Windows x64 zip**：包含 exe、`start-local.bat` / `start.ps1` 和便携 Redis，解压后直接运行 `start-local.bat`
+- **macOS Intel / Apple Silicon tar.gz**：包含二进制和 `start.sh`，需要自行安装 Redis 5+
+- **Linux x64 / arm64 tar.gz**：包含二进制和 `start.sh`，需要自行安装 Redis 5+
+- 每个 Release 附带 `SHA256SUMS.txt`
+
 ## 功能
 
 - 三协议入口：
@@ -210,7 +219,21 @@ redis-server --daemonize yes
 go build -o ai-quota-gateway ./src
 cp config.example.json config.json
 # 编辑 config.json
-./ai-quota-gateway
+./start.sh
+```
+
+也可以直接使用 Release 包：
+
+```bash
+tar -xzf ai-quota-gateway_v0.1.0_linux_amd64.tar.gz
+cd ai-quota-gateway_v0.1.0_linux_amd64
+./start.sh
+```
+
+macOS 首次运行如果被 Gatekeeper 拦截，可右键打开，或执行：
+
+```bash
+xattr -d com.apple.quarantine ./ai-quota-gateway
 ```
 
 仓库内的 `ai-gateway.service` 是 systemd 示例；部署时把 exe、`config.json`、`index.html`、`admin.html` 放到 `/opt/ai-gateway`，并按实际用户/路径调整。

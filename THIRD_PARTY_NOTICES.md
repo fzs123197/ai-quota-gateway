@@ -7,7 +7,7 @@
 - Windows port maintainer: Tomasz Poradowski
 - License: BSD-3-Clause (the full text is included at `tools/redis/LICENSE.txt`)
 
-Bundled files under `tools/redis/`:
+Windows release packages bundle the following files under `tools/redis/`. macOS/Linux release packages do not bundle Redis; install Redis 5+ separately.
 
 - `redis-server.exe`
 - `redis-cli.exe`

@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Quota Gateway</title>
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --card: #ffffff;
+    --line: #e6e8ec;
+    --text: #1b1f24;
+    --muted: #6b7280;
+    --ok: #2563eb;
+    --warn: #d97706;
+    --danger: #dc2626;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 40px 20px 56px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+                 "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; }
+  header {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 12px; margin-bottom: 24px; flex-wrap: wrap;
+  }
+  h1 { font-size: 19px; font-weight: 600; margin: 0; letter-spacing: .2px; }
+  .meta { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: #9ca3af; display: inline-block; }
+  .dot.live { background: #16a34a; }
+  .dot.err { background: var(--danger); }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 18px 20px;
+    margin-bottom: 14px;
+  }
+  .row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  .label { font-size: 14px; font-weight: 500; }
+  .sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .pct { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .bar {
+    position: relative; height: 8px; border-radius: 999px;
+    background: #eef0f3; overflow: hidden; margin: 14px 0 10px;
+  }
+  .fill {
+    height: 100%; width: 0%; border-radius: 999px;
+    background: var(--ok); transition: width .45s ease, background-color .3s ease;
+  }
+  .fill.warn { background: var(--warn); }
+  .fill.danger { background: var(--danger); }
+  .nums {
+    display: flex; justify-content: space-between;
+    font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums;
+  }
+  .nums b { color: var(--text); font-weight: 600; }
+
+  .grid3 {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 10px; margin-top: 4px;
+  }
+  .grid3 div { display: flex; flex-direction: column; gap: 3px; }
+  .grid3 span { font-size: 11px; color: var(--muted); }
+  .grid3 b {
+    font-size: 15px; font-weight: 600;
+    font-variant-numeric: tabular-nums; letter-spacing: -.2px;
+  }
+
+  #login {
+    display: none; background: var(--card); border: 1px solid var(--line);
+    border-radius: 12px; padding: 22px 20px; margin-bottom: 14px;
+  }
+  #login p { margin: 0 0 14px; font-size: 13px; color: var(--muted); }
+  #login input {
+    width: 100%; padding: 10px 12px; font-size: 14px; color: var(--text);
+    border: 1px solid var(--line); border-radius: 8px; outline: none; background: #fff;
+  }
+  #login input:focus { border-color: var(--ok); }
+  #login button {
+    margin-top: 10px; width: 100%; padding: 10px 12px; font-size: 14px;
+    border: 0; border-radius: 8px; background: var(--ok); color: #fff; cursor: pointer;
+  }
+  #login button:hover { filter: brightness(1.05); }
+  footer { margin-top: 22px; font-size: 12px; color: var(--muted); text-align: center; }
+  #err {
+    display: none; font-size: 13px; color: var(--danger);
+    background: #fef2f2; border: 1px solid #fecaca;
+    border-radius: 10px; padding: 10px 14px; margin-bottom: 14px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>AI Quota Gateway</h1>
+      <div class="meta" id="who" style="margin-top:4px">—</div>
+    </div>
+    <div class="meta">
+      <span id="dot" class="dot"></span>
+      <span id="status">连接中…</span>
+    </div>
+  </header>
+
+  <div id="err"></div>
+
+  <div id="login">
+    <p>请输入网关 API Key（即 config.json 中的 gateway.api_key）。</p>
+    <input id="keyInput" type="password" placeholder="gw-..." autocomplete="off">
+    <button id="keyBtn">进入</button>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <div>
+        <div class="label">月度额度 (credits)</div>
+        <div class="sub">自然月，按 credits 计；1 credit ≈ $0.000001</div>
+      </div>
+      <div class="pct" id="monthPct">—</div>
+    </div>
+    <div class="bar"><div class="fill" id="monthBar"></div></div>
+    <div class="nums">
+      <span>已用 <b id="monthUsed">—</b></span>
+      <span>配额 <b id="monthQuota">—</b></span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <div>
+        <div class="label">周额度 (credits)</div>
+        <div class="sub">ISO 自然周，按 credits 计</div>
+      </div>
+      <div class="pct" id="weekPct">—</div>
+    </div>
+    <div class="bar"><div class="fill" id="weekBar"></div></div>
+    <div class="nums">
+      <span>已用 <b id="weekUsed">—</b></span>
+      <span>配额 <b id="weekQuota">—</b></span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <div>
+        <div class="label">5 小时滑动窗口 (credits)</div>
+        <div class="sub">Redis ZSet 滑动窗口，按 credits 计</div>
+      </div>
+      <div class="pct" id="fivePct">—</div>
+    </div>
+    <div class="bar"><div class="fill" id="fiveBar"></div></div>
+    <div class="nums">
+      <span>已用 <b id="fiveUsed">—</b></span>
+      <span>配额 <b id="fiveQuota">—</b></span>
+    </div>
+  </div>
+
+  <div class="card" id="costCard">
+    <div class="row">
+      <div>
+        <div class="label">额度价值（约）</div>
+        <div class="sub" id="costSub">credits 折算成当前货币</div>
+      </div>
+    </div>
+    <div class="grid3" style="margin-top:12px">
+      <div><span>本月 已用 / 上限</span><b id="costMonth">—</b></div>
+      <div><span>本周 已用 / 上限</span><b id="costWeek">—</b></div>
+      <div><span>5 小时 已用 / 上限</span><b id="costFive">—</b></div>
+    </div>
+  </div>
+
+  <footer>
+    每 5 秒自动刷新 · 任一额度超限，网关直接返回 429
+    <div style="margin-top:6px"><a href="/admin" style="color:#6b7280">管理台 →</a></div>
+  </footer>
+</div>
+
+<script>
+(function () {
+  var POLL_MS = 5000;
+  var timer = null;
+
+  var $ = function (id) { return document.getElementById(id); };
+
+  // 首次以 /?key=xxx 访问时，服务端会下发 Cookie；同时把 key 存进 localStorage 供请求头使用。
+  var params = new URLSearchParams(location.search);
+  if (params.get('key')) {
+    try { localStorage.setItem('gw_key', params.get('key')); } catch (e) {}
+    params.delete('key');
+    var qs = params.toString();
+    history.replaceState(null, '', location.pathname + (qs ? '?' + qs : ''));
+  }
+
+  function getKey() {
+    try { return localStorage.getItem('gw_key') || ''; } catch (e) { return ''; }
+  }
+
+  function fmt(n) {
+    if (n === null || n === undefined || isNaN(n)) return '—';
+    return Number(n).toLocaleString('zh-CN');
+  }
+
+  function setStatus(text, cls) {
+    $('status').textContent = text;
+    $('dot').className = 'dot' + (cls ? ' ' + cls : '');
+  }
+
+  function showError(msg) {
+    var el = $('err');
+    if (!msg) { el.style.display = 'none'; el.textContent = ''; return; }
+    el.textContent = msg;
+    el.style.display = 'block';
+  }
+
+  function renderBar(barId, pctId, used, quota) {
+    var bar = $(barId);
+    var pct = quota > 0 ? (used / quota) * 100 : 0;
+    if (pct > 100) pct = 100;
+    bar.style.width = pct.toFixed(2) + '%';
+    bar.className = 'fill' + (pct >= 90 ? ' danger' : pct >= 70 ? ' warn' : '');
+    $(pctId).textContent = (quota > 0 ? ((used / quota) * 100) : 0).toFixed(1) + '%';
+  }
+
+  function money(sym, v) {
+    if (v === null || v === undefined || isNaN(v)) return '—';
+    var n = Number(v);
+    var a = Math.abs(n);
+    // 金额通常很小，按量级选小数位，避免全被截成 0.0000
+    var digits = a === 0 || a >= 1 ? 2 : a >= 0.01 ? 4 : a >= 0.0001 ? 6 : 8;
+    return sym + n.toFixed(digits);
+  }
+
+  function renderMoney(m, p) {
+    var card = $('costCard');
+    card.style.display = 'block';
+    if (!m || !m.available) {
+      $('costMonth').textContent = '—';
+      $('costWeek').textContent = '—';
+      $('costFive').textContent = '—';
+      $('costSub').textContent = '汇率或价格未就绪，暂无法折算金额';
+      return;
+    }
+    var sym = m.symbol || '';
+    $('costMonth').textContent = money(sym, m.month_used) + ' / ' + money(sym, m.month_limit);
+    $('costWeek').textContent = money(sym, m.week_used) + ' / ' + money(sym, m.week_limit);
+    $('costFive').textContent = money(sym, m.five_hour_used) + ' / ' + money(sym, m.five_hour_limit);
+
+    var sub = 'credits 折算 · 1 credit ≈ ' + money(sym, p.credit_unit || 0);
+    if (p.missing_models && p.missing_models.length) {
+      sub += ' · ' + p.missing_models.length + ' 个模型未定价';
+    }
+    $('costSub').textContent = sub;
+  }
+
+  function render(d) {
+    if (d.key) {
+      $('who').textContent = '密钥 ' + d.key.name + '（' + d.key.prefix + '） · 方案 ' + d.key.plan_name;
+    }
+    $('monthUsed').textContent = fmt(d.month_used);
+    $('monthQuota').textContent = fmt(d.month_quota);
+    $('weekUsed').textContent = fmt(d.week_used);
+    $('weekQuota').textContent = fmt(d.week_quota);
+    $('fiveUsed').textContent = fmt(d.five_hour_used);
+    $('fiveQuota').textContent = fmt(d.five_hour_quota);
+
+    renderBar('monthBar', 'monthPct', d.month_used, d.month_quota);
+    renderBar('weekBar', 'weekPct', d.week_used, d.week_quota);
+    renderBar('fiveBar', 'fivePct', d.five_hour_used, d.five_hour_quota);
+    renderMoney(d.money || {}, d.pricing || {});
+  }
+
+  function showLogin() {
+    $('login').style.display = 'block';
+    setStatus('未授权', 'err');
+    if (timer) { clearInterval(timer); timer = null; }
+  }
+
+  function poll() {
+    var key = getKey();
+    var headers = {};
+    if (key) headers['Authorization'] = 'Bearer ' + key;
+
+    fetch('/quota', { headers: headers, cache: 'no-store' })
+      .then(function (res) {
+        if (res.status === 401) { showLogin(); return null; }
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.json();
+      })
+      .then(function (d) {
+        if (!d) return;
+        $('login').style.display = 'none';
+        showError('');
+        render(d);
+        setStatus('已连接 · ' + new Date().toLocaleTimeString('zh-CN'), 'live');
+      })
+      .catch(function (e) {
+        setStatus('连接失败', 'err');
+        showError('无法读取 /quota：' + e.message);
+      });
+  }
+
+  $('keyBtn').addEventListener('click', function () {
+    var v = $('keyInput').value.trim();
+    if (!v) return;
+    location.href = '/?key=' + encodeURIComponent(v);
+  });
+  $('keyInput').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') $('keyBtn').click();
+  });
+
+  poll();
+  timer = setInterval(function () {
+    if (!document.hidden) poll();
+  }, POLL_MS);
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden) poll();
+  });
+})();
+</script>
+</body>
+</html>

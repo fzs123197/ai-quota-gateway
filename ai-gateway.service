@@ -1,0 +1,49 @@
+[Unit]
+Description=AI Quota Gateway (OpenAI-compatible quota proxy)
+After=network-online.target redis-server.service
+Wants=network-online.target
+# 【重要】本单元对应「服务模式」：部署前请把 config.json 里的
+#   gateway.mode     改为 "service"（否则只会监听 127.0.0.1，外部无法访问）
+#   gateway.listen_addr 改为对外地址，如 ":8080"
+# 本地自用请勿使用本单元，直接运行 start-local.bat 或 ./ai-quota-gateway 即可。
+#
+# 如果 Redis 跑在本机，可打开下面这行，让 Redis 先起来再启动网关。
+# 注意：不同发行版的服务名可能不是 redis-server.service（例如 redis.service），请按实际修改。
+# Requires=redis-server.service
+
+[Service]
+Type=simple
+User=ai-gateway
+Group=ai-gateway
+WorkingDirectory=/opt/ai-gateway
+ExecStart=/opt/ai-gateway/ai-quota-gateway
+
+# 异常自动重启：无论退出码如何都拉起，3 秒后重试，不限制重启次数
+Restart=always
+RestartSec=3
+StartLimitIntervalSec=0
+# 收到 SIGTERM 后最多等 20 秒（让在途的流式请求收尾）
+TimeoutStopSec=20
+KillSignal=SIGTERM
+
+# 结构化日志直接进 journald：journalctl -u ai-gateway -f
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ai-gateway
+
+# 安全加固（配置只读，网关不需要写磁盘）
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+# 如需把日志落盘为文件，改用下面两行（并创建 /var/log/ai-gateway 目录、chown ai-gateway）：
+# StandardOutput=append:/var/log/ai-gateway/gateway.log
+# StandardError=append:/var/log/ai-gateway/gateway.log
+
+[Install]
+WantedBy=multi-user.target

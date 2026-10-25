@@ -1,0 +1,95 @@
+{
+  "gateway": {
+    "mode": "local",
+    "api_key": "gw-CHANGE-ME",
+    "admin_key": "gw-admin-CHANGE-ME",
+    "listen_addr": "127.0.0.1:8080"
+  },
+  "redis": {
+    "addr": "127.0.0.1:6379",
+    "db": 0
+  },
+  "quota": {
+    "month": 10000000,
+    "week": 3000000,
+    "five_hour_window": 300000
+  },
+  "pricing": {
+    "enabled": true,
+    "currency": "CNY",
+    "refresh_hours": 24,
+    "timeout_seconds": 60,
+    "sources": [
+      {
+        "name": "models5",
+        "url": "https://models5.com/catalog.json",
+        "format": "catalog"
+      },
+      {
+        "name": "models.dev",
+        "url": "https://models.dev/api.json",
+        "format": "modelsdev"
+      },
+      {
+        "name": "openrouter",
+        "url": "https://openrouter.ai/api/v1/models",
+        "format": "openrouter"
+      }
+    ],
+    "fx": {
+      "url": "https://open.er-api.com/v6/latest/USD",
+      "format": "rates",
+      "refresh_hours": 6,
+      "fallback_rate": 0
+    },
+    "fallback": {
+      "input": 0,
+      "output": 0
+    }
+  },
+  "upstream": [
+    {
+      "model_name": "deepseek-chat",
+      "protocol": "chat",
+      "provider": "deepseek",
+      "base_url": "https://api.deepseek.com/v1",
+      "api_key": "sk-CHANGE-ME",
+      "price": {
+        "input": 2,
+        "output": 8,
+        "cache_read": 0.5
+      }
+    },
+    {
+      "model_name": "deepseek-reasoner",
+      "protocol": "chat",
+      "provider": "deepseek",
+      "base_url": "https://api.deepseek.com/v1",
+      "api_key": "sk-CHANGE-ME",
+      "price": {
+        "input": 4,
+        "output": 16,
+        "cache_read": 1
+      }
+    },
+    {
+      "model_name": "qwen-plus",
+      "protocol": "chat",
+      "provider": "alibaba-cn",
+      "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      "api_key": "sk-CHANGE-ME"
+    },
+    {
+      "model_name": "glm-4-plus",
+      "protocol": "chat",
+      "provider": "zhipuai",
+      "base_url": "https://open.bigmodel.cn/api/paas/v4",
+      "api_key": "CHANGE-ME",
+      "price": {
+        "input": 50,
+        "output": 50,
+        "cache_read": 5
+      }
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+# 本地配置与密钥（不要提交）
+config.json
+
+# 运行时缓存 / 数据
+pricing-cache.json
+fx-cache.json
+data/
+logs/
+*.log
+
+# 临时文件
+*.tmp
+*.bak
+*.zip
+start-local.out
+
+# 编辑器 / 系统
+.workbuddy-ai/
+.qoder/
+.idea/
+.vscode/
+Thumbs.db
+desktop.ini

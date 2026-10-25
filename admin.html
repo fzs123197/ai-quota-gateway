@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Quota Gateway · 管理台</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --card:#fff; --line:#e6e8ec; --text:#1b1f24; --muted:#6b7280;
+    --ok:#2563eb; --warn:#d97706; --danger:#dc2626; --okbg:#eff6ff;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; padding:28px 20px 64px; background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1040px;margin:0 auto}
+  header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px;flex-wrap:wrap}
+  h1{font-size:18px;margin:0;font-weight:600}
+  .tabs{display:flex;gap:6px;background:#eceef2;padding:4px;border-radius:10px}
+  .tab{padding:7px 16px;border-radius:7px;font-size:13px;cursor:pointer;color:var(--muted);border:0;background:transparent}
+  .tab.active{background:#fff;color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.06);font-weight:600}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-bottom:14px}
+  .card h2{font-size:14px;margin:0 0 14px;font-weight:600}
+  .muted{color:var(--muted);font-size:12px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{text-align:left;font-weight:500;color:var(--muted);font-size:12px;padding:8px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+  td{padding:10px 8px;border-bottom:1px solid #f1f2f4;vertical-align:middle}
+  tr:last-child td{border-bottom:0}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px}
+  input,select{
+    font:inherit;font-size:13px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;
+    background:#fff;color:var(--text);outline:none;
+  }
+  input:focus,select:focus{border-color:var(--ok)}
+  button{font:inherit;font-size:13px;padding:8px 14px;border-radius:8px;border:1px solid var(--line);
+    background:#fff;color:var(--text);cursor:pointer}
+  button:hover{background:#f9fafb}
+  button.primary{background:var(--ok);border-color:var(--ok);color:#fff}
+  button.primary:hover{filter:brightness(1.06)}
+  button.danger{color:var(--danger);border-color:#fecaca}
+  button.danger:hover{background:#fef2f2}
+  button.tiny{padding:5px 10px;font-size:12px}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;border:1px solid var(--line);color:var(--muted)}
+  .badge.on{background:#ecfdf5;border-color:#a7f3d0;color:#047857}
+  .badge.off{background:#fef2f2;border-color:#fecaca;color:#b91c1c}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
+  .stat{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+  .stat .k{font-size:12px;color:var(--muted)}
+  .stat .v{font-size:22px;font-weight:600;margin-top:4px;font-variant-numeric:tabular-nums}
+  .chart{display:flex;align-items:flex-end;gap:3px;height:150px;margin-top:8px;padding-top:8px}
+  .chart .bar{flex:1;background:#bfdbfe;border-radius:3px 3px 0 0;min-height:2px;position:relative}
+  .chart .bar:hover{background:var(--ok)}
+  .chart .bar span{display:none}
+  #login{display:none;background:#fff;border:1px solid var(--line);border-radius:12px;padding:24px;margin-bottom:14px}
+  #login input{width:100%;margin-bottom:10px}
+  #login button{width:100%}
+  #toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:#111827;color:#fff;
+    padding:10px 18px;border-radius:999px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:50}
+  #toast.show{opacity:.95}
+  .secret{background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:12px 14px;margin-top:10px}
+  .secret code{font-size:13px;word-break:break-all}
+  .hidden{display:none!important}
+  .form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+  label{font-size:12px;color:var(--muted);display:block;margin-bottom:4px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>AI Quota Gateway · 管理台</h1>
+    <div class="tabs">
+      <button class="tab active" data-tab="keys">密钥</button>
+      <button class="tab" data-tab="plans">额度方案</button>
+      <button class="tab" data-tab="usage">用量统计</button>
+    </div>
+  </header>
+
+  <div id="login">
+    <p class="muted" style="margin-top:0">请输入管理台密钥（config.json 的 gateway.admin_key，留空则用 api_key）。</p>
+    <input id="keyInput" type="password" placeholder="gw-admin-..." autocomplete="off">
+    <button class="primary" id="keyBtn">进入</button>
+  </div>
+
+  <div id="app" class="hidden">
+    <!-- 密钥 -->
+    <section id="tab-keys">
+      <div class="card">
+        <h2>新建密钥</h2>
+        <div class="row">
+          <input id="newKeyName" placeholder="名称，例如：Cursor 桌面端" style="flex:1;min-width:200px">
+          <select id="newKeyPlan"></select>
+          <button class="primary" id="createKeyBtn">创建</button>
+        </div>
+        <div id="newKeySecret" class="secret hidden">
+          新密钥（只显示这一次，请立即复制）：
+          <div class="row" style="margin-top:6px">
+            <code id="newKeyValue" class="mono"></code>
+            <button class="tiny" id="copyKeyBtn">复制</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>密钥列表</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>名称</th><th>密钥</th><th>方案</th><th>本月</th><th>5 小时</th><th>状态</th><th>最近使用</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="keysBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 方案 -->
+    <section id="tab-plans" class="hidden">
+      <div class="card">
+        <h2 id="planFormTitle">新建额度方案</h2>
+        <div class="row" style="margin-bottom:12px">
+          <span class="muted">预设</span>
+          <select id="planPreset" style="min-width:300px"></select>
+          <span class="muted">选择后填入表单；保存会新建方案，内置预设本身可直接在下方列表编辑</span>
+        </div>
+        <div class="form-grid">
+          <div><label>名称</label><input id="planName" placeholder="例如：日常方案"></div>
+          <div><label>月额度 (credits)</label><input id="planMonth" type="number" min="1" value="10000000"></div>
+          <div><label>周额度 (credits)</label><input id="planWeek" type="number" min="1" value="3000000"></div>
+          <div><label>5 小时额度 (credits)</label><input id="planFive" type="number" min="1" value="300000"></div>
+        </div>
+        <div class="row" style="margin-top:12px">
+          <button class="primary" id="savePlanBtn">保存方案</button>
+          <button id="resetPlanBtn">清空</button>
+          <span class="muted" id="planMoneyHint"></span>
+        </div>
+        <p class="muted" style="margin:10px 0 0">
+          1 credit = $0.000001。模型按价格自动得到消耗倍率（credits/token），无需手动配置金额上限。
+        </p>
+      </div>
+
+      <div class="card">
+        <h2>方案列表</h2>
+        <table>
+          <thead>
+            <tr><th>名称</th><th>月 / 周 / 5h (credits)</th><th>满月约</th><th>使用中</th><th></th></tr>
+          </thead>
+          <tbody id="plansBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 用量 -->
+    <section id="tab-usage" class="hidden">
+      <div class="card">
+        <div class="row" style="justify-content:space-between">
+          <h2 style="margin:0">用量统计</h2>
+          <div class="row">
+            <button class="tiny range" data-days="7">7 天</button>
+            <button class="tiny range" data-days="30">30 天</button>
+            <button class="tiny range" data-days="90">90 天</button>
+          </div>
+        </div>
+        <div class="grid" style="margin-top:14px">
+          <div class="stat"><div class="k">请求数</div><div class="v" id="uReq">—</div></div>
+          <div class="stat"><div class="k">Token 总量</div><div class="v" id="uTok">—</div></div>
+          <div class="stat"><div class="k">花费</div><div class="v" id="uCost">—</div></div>
+        </div>
+        <div class="chart" id="chart"></div>
+        <div class="muted" id="chartHint" style="margin-top:6px"></div>
+      </div>
+
+      <div class="card">
+        <h2>按模型</h2>
+        <table>
+          <thead><tr><th>模型</th><th>请求</th><th>输入</th><th>输出</th><th>花费</th></tr></thead>
+          <tbody id="modelBody"></tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>按密钥</h2>
+        <table>
+          <thead><tr><th>密钥</th><th>请求</th><th>Token</th><th>花费</th></tr></thead>
+          <tbody id="keyUsageBody"></tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>模型消耗倍率</h2>
+        <p class="muted" style="margin:0 0 10px">
+          倍率 = 每 token 消耗的 credits，由模型单价自动计算（数值 = 美元 / 1M tokens）。缓存倍率用于命中缓存的输入；分档模型按实际档位计费，表内为基准倍率。
+        </p>
+        <table>
+          <thead><tr><th>模型</th><th>输入倍率</th><th>输出倍率</th><th>缓存倍率</th><th>每 1M 输入</th></tr></thead>
+          <tbody id="rateBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <p class="muted" id="footerInfo" style="text-align:center;margin-top:24px"></p>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+(function () {
+  var API = '/admin/api';
+  var state = { keys: [], plans: [], presets: [], pricing: null, editingPlan: null, days: 30 };
+
+  function $(id) { return document.getElementById(id); }
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function num(n) { return (n == null || isNaN(n)) ? '—' : Number(n).toLocaleString('zh-CN'); }
+  function money(v, sym) {
+    if (v == null || isNaN(v)) return '—';
+    var a = Math.abs(Number(v));
+    var d = a === 0 || a >= 1 ? 2 : a >= 0.01 ? 4 : a >= 0.0001 ? 6 : 8;
+    return (sym || '') + Number(v).toFixed(d);
+  }
+  function creditUnit() { return (state.pricing && state.pricing.credit_unit) || 0; }
+  function creditMoney(credits) {
+    var u = creditUnit();
+    if (!u) return '—';
+    return money(Number(credits || 0) * u, state.pricing.symbol || '');
+  }
+  function multiplier(v) {
+    if (v == null || isNaN(v)) return '—';
+    return Number(v).toFixed(4).replace(/0+$/, '').replace(/\.$/, '');
+  }
+  function updatePlanMoneyHint() {
+    var el = $('planMoneyHint');
+    if (!el) return;
+    var credits = parseInt($('planMonth').value, 10) || 0;
+    var u = creditUnit();
+    if (!credits) { el.textContent = '1 credit = $0.000001'; return; }
+    if (!u) { el.textContent = '满月约 —（汇率/价格未就绪）'; return; }
+    el.textContent = '满月约 ' + creditMoney(credits) +
+      '（' + num(credits) + ' credits × ' + money(u, state.pricing.symbol || '') + '）';
+  }
+  function toast(msg) {
+    var t = $('toast'); t.textContent = msg; t.className = 'show';
+    setTimeout(function () { t.className = ''; }, 1800);
+  }
+
+  function getKey() {
+    try { return localStorage.getItem('gw_admin_key') || ''; } catch (e) { return ''; }
+  }
+
+  function api(path, opts) {
+    opts = opts || {};
+    opts.headers = opts.headers || {};
+    var k = getKey();
+    if (k) opts.headers['Authorization'] = 'Bearer ' + k;
+    if (opts.body && typeof opts.body !== 'string') {
+      opts.headers['Content-Type'] = 'application/json';
+      opts.body = JSON.stringify(opts.body);
+    }
+    return fetch(API + path, opts).then(function (res) {
+      if (res.status === 401) { showLogin(); throw new Error('unauthorized'); }
+      return res.json().then(function (body) {
+        if (!res.ok) throw new Error(body && body.error ? body.error : ('HTTP ' + res.status));
+        return body;
+      });
+    });
+  }
+
+  function showLogin() {
+    $('login').style.display = 'block';
+    $('app').classList.add('hidden');
+  }
+
+  // ---------- 渲染：密钥 ----------
+  function planOptions(selected) {
+    return state.plans.map(function (p) {
+      return '<option value="' + esc(p.id) + '"' + (p.id === selected ? ' selected' : '') + '>' + esc(p.name) + '</option>';
+    }).join('');
+  }
+
+  function renderPresets() {
+    var sel = $('planPreset');
+    if (!sel) return;
+    var current = sel.value;
+    var opts = ['<option value="">自定义 / 选择预设…</option>'];
+    state.presets.forEach(function (p) {
+      opts.push('<option value="' + esc(p.id) + '">' + esc(p.name) +
+        ' · 月 ' + num(p.month) + ' credits ≈ ' + creditMoney(p.month) +
+        ' / 月 · 周 ' + num(p.week) + ' · 5h ' + num(p.five_hour) + '</option>');
+    });
+    sel.innerHTML = opts.join('');
+    sel.value = current;
+  }
+
+  function applyPreset(id) {
+    var p = state.presets.filter(function (x) { return x.id === id; })[0];
+    if (!p) return;
+    state.editingPlan = null;
+    $('planFormTitle').textContent = '新建额度方案（预设：' + p.name + '）';
+    $('planName').value = p.name;
+    $('planMonth').value = p.month;
+    $('planWeek').value = p.week;
+    $('planFive').value = p.five_hour;
+    updatePlanMoneyHint();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function renderKeys() {
+    var body = $('keysBody');
+    if (!state.keys.length) {
+      body.innerHTML = '<tr><td colspan="8" class="muted">还没有密钥，先在上面创建一个。</td></tr>';
+      return;
+    }
+    body.innerHTML = state.keys.map(function (k) {
+      var monthPct = k.month_quota > 0 ? Math.min(100, k.month_used / k.month_quota * 100) : 0;
+      var fivePct = k.five_quota > 0 ? Math.min(100, k.five_used / k.five_quota * 100) : 0;
+      var barColor = function (p) { return p >= 90 ? 'var(--danger)' : p >= 70 ? 'var(--warn)' : 'var(--ok)'; };
+      return '<tr>' +
+        '<td>' + esc(k.name) + '<div class="muted mono">' + esc(k.id) + '</div></td>' +
+        '<td class="mono">' + esc(k.prefix) + '</td>' +
+        '<td><select data-act="plan" data-id="' + esc(k.id) + '">' + planOptions(k.plan_id) + '</select></td>' +
+        '<td style="min-width:150px">' +
+          '<div class="muted">' + num(k.month_used) + ' / ' + num(k.month_quota) + ' credits</div>' +
+          '<div style="height:4px;background:#eef0f3;border-radius:999px;margin-top:4px">' +
+            '<div style="height:4px;width:' + monthPct.toFixed(1) + '%;background:' + barColor(monthPct) + ';border-radius:999px"></div></div>' +
+          '<div class="muted" style="margin-top:3px">≈ ' + creditMoney(k.month_used) + ' / ' + creditMoney(k.month_quota) + '</div>' +
+        '</td>' +
+        '<td style="min-width:130px">' +
+          '<div class="muted">' + num(k.five_used) + ' / ' + num(k.five_quota) + ' credits</div>' +
+          '<div style="height:4px;background:#eef0f3;border-radius:999px;margin-top:4px">' +
+            '<div style="height:4px;width:' + fivePct.toFixed(1) + '%;background:' + barColor(fivePct) + ';border-radius:999px"></div></div>' +
+          '<div class="muted" style="margin-top:3px">≈ ' + creditMoney(k.five_used) + ' / ' + creditMoney(k.five_quota) + '</div>' +
+        '</td>' +
+        '<td><span class="badge ' + (k.enabled ? 'on' : 'off') + '">' + (k.enabled ? '启用' : '停用') + '</span></td>' +
+        '<td class="muted">' + (k.last_used ? new Date(k.last_used).toLocaleString('zh-CN') : '从未') + '</td>' +
+        '<td class="row" style="gap:6px">' +
+          '<button class="tiny" data-act="toggle" data-id="' + esc(k.id) + '" data-enabled="' + k.enabled + '">' + (k.enabled ? '停用' : '启用') + '</button>' +
+          '<button class="tiny danger" data-act="del" data-id="' + esc(k.id) + '">删除</button>' +
+        '</td>' +
+      '</tr>';
+    }).join('');
+  }
+
+  // ---------- 渲染：方案 ----------
+  function renderPlans() {
+    var used = {};
+    state.keys.forEach(function (k) { used[k.plan_id] = (used[k.plan_id] || 0) + 1; });
+    $('plansBody').innerHTML = state.plans.map(function (p) {
+      return '<tr>' +
+        '<td>' + esc(p.name) + (p.builtin ? ' <span class="badge">内置</span>' : '') +
+          '<div class="muted mono">' + esc(p.id) + '</div></td>' +
+        '<td class="mono">' + num(p.month) + ' / ' + num(p.week) + ' / ' + num(p.five_hour) + '</td>' +
+        '<td class="mono">' + creditMoney(p.month) + ' / 月</td>' +
+        '<td>' + (used[p.id] || 0) + ' 个 key</td>' +
+        '<td class="row" style="gap:6px">' +
+          '<button class="tiny" data-act="edit-plan" data-id="' + esc(p.id) + '">编辑</button>' +
+          (p.builtin ? '' : '<button class="tiny danger" data-act="del-plan" data-id="' + esc(p.id) + '">删除</button>') +
+        '</td>' +
+      '</tr>';
+    }).join('');
+    // 新 key 默认选 Plus；预设缺失时退回列表首个方案。
+    var defaultPlan = 'plus';
+    if (!state.plans.some(function (p) { return p.id === defaultPlan; })) {
+      defaultPlan = state.plans[0] && state.plans[0].id;
+    }
+    $('newKeyPlan').innerHTML = planOptions(defaultPlan);
+  }
+
+  // ---------- 渲染：用量 ----------
+  function renderUsage(data) {
+    var r = data.report, sym = data.symbol || '';
+    $('uReq').textContent = num(r.totals.requests);
+    $('uTok').textContent = num(r.totals.tokens);
+    $('uCost').textContent = money(r.totals.cost, sym);
+
+    var max = 0;
+    r.daily.forEach(function (d) { if (d.cost > max) max = d.cost; });
+    var chart = $('chart');
+    chart.innerHTML = r.daily.map(function (d) {
+      var h = max > 0 ? Math.max(2, (d.cost / max) * 140) : 2;
+      return '<div class="bar" style="height:' + h.toFixed(1) + 'px" title="' + d.date + '：' +
+        money(d.cost, sym) + ' / ' + num(d.requests) + ' 次"></div>';
+    }).join('');
+    $('chartHint').textContent = r.daily.length
+      ? r.from + ' ~ ' + r.to + '，按天花费（悬停查看明细）'
+      : '暂无数据';
+
+    $('modelBody').innerHTML = r.models.length ? r.models.map(function (m) {
+      return '<tr><td class="mono">' + esc(m.model) + '</td><td>' + num(m.requests) + '</td>' +
+        '<td>' + num(m.tokens_in) + '</td><td>' + num(m.tokens_out) + '</td>' +
+        '<td>' + money(m.cost, sym) + '</td></tr>';
+    }).join('') : '<tr><td colspan="5" class="muted">暂无数据</td></tr>';
+
+    $('keyUsageBody').innerHTML = r.keys.length ? r.keys.map(function (k) {
+      return '<tr><td>' + esc(k.name) + '</td><td>' + num(k.requests) + '</td>' +
+        '<td>' + num(k.tokens) + '</td><td>' + money(k.cost, sym) + '</td></tr>';
+    }).join('') : '<tr><td colspan="4" class="muted">暂无数据</td></tr>';
+  }
+
+  function renderRates() {
+    var rates = (state.pricing && state.pricing.rates) || [];
+    var body = $('rateBody');
+    if (!rates.length) {
+      body.innerHTML = '<tr><td colspan="5" class="muted">暂无已定价模型</td></tr>';
+      return;
+    }
+    body.innerHTML = rates.map(function (r) {
+      var meta = [r.provider, r.source].filter(Boolean).join(' · ');
+      var per1m = Math.round(Number(r.input) * 1e6);
+      var cache = Number(r.cache_read) > 0 ? '×' + multiplier(r.cache_read) : '—';
+      return '<tr>' +
+        '<td class="mono">' + esc(r.model) + (meta ? '<div class="muted">' + esc(meta) + '</div>' : '') + '</td>' +
+        '<td>×' + multiplier(r.input) + '</td>' +
+        '<td>×' + multiplier(r.output) + '</td>' +
+        '<td>' + cache + '</td>' +
+        '<td class="muted">' + num(per1m) + ' credits</td>' +
+      '</tr>';
+    }).join('');
+  }
+
+  function loadUsage() {
+    return api('/usage?days=' + state.days).then(renderUsage).catch(function (e) {
+      if (e.message !== 'unauthorized') toast('用量加载失败：' + e.message);
+    });
+  }
+
+  function loadAll() {
+    return api('/overview').then(function (d) {
+      state.keys = d.keys || [];
+      state.plans = d.plans || [];
+      state.presets = d.presets || [];
+      state.pricing = d.pricing;
+      $('login').style.display = 'none';
+      $('app').classList.remove('hidden');
+      renderPresets();
+      renderKeys();
+      renderPlans();
+      renderRates();
+      updatePlanMoneyHint();
+      var info = '币种 ' + (d.pricing.currency || '-') +
+        ' · 价格源 ' + ((d.pricing.sources || []).join(' / ') || '未配置') +
+        ' · 已定价 ' + d.pricing.models + ' 个模型';
+      if ((d.pricing.missing_models || []).length) {
+        info += ' · 未定价 ' + d.pricing.missing_models.length + ' 个';
+      }
+      if (d.pricing.credit_unit > 0) {
+        info += ' · 1 credit ≈ ' + money(d.pricing.credit_unit, d.pricing.symbol || '');
+      }
+      if (d.pricing.fx && d.pricing.fx.rate) info += ' · 汇率 ' + d.pricing.fx.rate;
+      $('footerInfo').textContent = info;
+    }).catch(function (e) {
+      if (e.message !== 'unauthorized') toast('加载失败：' + e.message);
+    });
+  }
+
+  // ---------- 交互 ----------
+  document.addEventListener('click', function (ev) {
+    var el = ev.target.closest('[data-act]');
+    if (!el) return;
+    var act = el.dataset.act, id = el.dataset.id;
+    if (act === 'toggle') {
+      api('/keys/' + id, { method: 'PATCH', body: { enabled: el.dataset.enabled !== 'true' } })
+        .then(function () { toast('已更新'); return loadAll(); });
+    } else if (act === 'del') {
+      if (!confirm('删除后该密钥立即失效，确定？')) return;
+      api('/keys/' + id, { method: 'DELETE' }).then(function () { toast('已删除'); return loadAll(); });
+    } else if (act === 'del-plan') {
+      if (!confirm('确定删除该方案？')) return;
+      api('/plans/' + id, { method: 'DELETE' }).then(function () { toast('已删除'); return loadAll(); })
+        .catch(function (e) { toast(e.message); });
+    } else if (act === 'edit-plan') {
+      var p = state.plans.filter(function (x) { return x.id === id; })[0];
+      if (!p) return;
+      state.editingPlan = p.id;
+      $('planPreset').value = '';
+      $('planFormTitle').textContent = '编辑方案：' + p.name;
+      $('planName').value = p.name;
+      $('planMonth').value = p.month;
+      $('planWeek').value = p.week;
+      $('planFive').value = p.five_hour;
+      updatePlanMoneyHint();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  });
+
+  document.addEventListener('change', function (ev) {
+    var el = ev.target.closest('[data-act="plan"]');
+    if (!el) return;
+    api('/keys/' + el.dataset.id, { method: 'PATCH', body: { plan_id: el.value } })
+      .then(function () { toast('方案已切换'); return loadAll(); })
+      .catch(function (e) { toast(e.message); });
+  });
+
+  $('createKeyBtn').onclick = function () {
+    var name = $('newKeyName').value.trim();
+    if (!name) { toast('请填写名称'); return; }
+    api('/keys', { method: 'POST', body: { name: name, plan_id: $('newKeyPlan').value } })
+      .then(function (d) {
+        $('newKeyValue').textContent = d.secret;
+        $('newKeySecret').classList.remove('hidden');
+        $('newKeyName').value = '';
+        toast('密钥已创建');
+        return loadAll();
+      }).catch(function (e) { toast(e.message); });
+  };
+
+  $('copyKeyBtn').onclick = function () {
+    var t = $('newKeyValue').textContent;
+    if (navigator.clipboard) navigator.clipboard.writeText(t).then(function () { toast('已复制'); });
+  };
+
+  function planPayload() {
+    return {
+      name: $('planName').value.trim(),
+      month: parseInt($('planMonth').value, 10) || 0,
+      week: parseInt($('planWeek').value, 10) || 0,
+      five_hour: parseInt($('planFive').value, 10) || 0
+    };
+  }
+
+  $('savePlanBtn').onclick = function () {
+    var body = planPayload();
+    if (!body.name) { toast('请填写方案名称'); return; }
+    var req = state.editingPlan
+      ? api('/plans/' + state.editingPlan, { method: 'PATCH', body: body })
+      : api('/plans', { method: 'POST', body: body });
+    req.then(function () { toast('已保存'); resetPlanForm(); return loadAll(); })
+       .catch(function (e) { toast(e.message); });
+  };
+
+  function resetPlanForm() {
+    state.editingPlan = null;
+    $('planFormTitle').textContent = '新建额度方案';
+    $('planPreset').value = '';
+    $('planName').value = '';
+    $('planMonth').value = 10000000;
+    $('planWeek').value = 3000000;
+    $('planFive').value = 300000;
+    updatePlanMoneyHint();
+  }
+  $('resetPlanBtn').onclick = resetPlanForm;
+  $('planPreset').onchange = function () { applyPreset(this.value); };
+  $('planMonth').addEventListener('input', updatePlanMoneyHint);
+
+  Array.prototype.forEach.call(document.querySelectorAll('.tab'), function (t) {
+    t.onclick = function () {
+      Array.prototype.forEach.call(document.querySelectorAll('.tab'), function (x) { x.classList.remove('active'); });
+      t.classList.add('active');
+      ['keys', 'plans', 'usage'].forEach(function (n) {
+        $('tab-' + n).classList.toggle('hidden', n !== t.dataset.tab);
+      });
+      if (t.dataset.tab === 'usage') loadUsage();
+    };
+  });
+
+  Array.prototype.forEach.call(document.querySelectorAll('.range'), function (b) {
+    b.onclick = function () {
+      state.days = parseInt(b.dataset.days, 10);
+      Array.prototype.forEach.call(document.querySelectorAll('.range'), function (x) { x.style.fontWeight = ''; });
+      b.style.fontWeight = '600';
+      loadUsage();
+    };
+  });
+
+  $('keyBtn').onclick = function () {
+    var v = $('keyInput').value.trim();
+    if (!v) return;
+    try { localStorage.setItem('gw_admin_key', v); } catch (e) {}
+    location.href = '/admin?key=' + encodeURIComponent(v);
+  };
+  $('keyInput').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') $('keyBtn').click();
+  });
+
+  // 首次以 /admin?key= 访问时把 key 存下来
+  var params = new URLSearchParams(location.search);
+  if (params.get('key')) {
+    try { localStorage.setItem('gw_admin_key', params.get('key')); } catch (e) {}
+    history.replaceState(null, '', location.pathname);
+  }
+
+  loadAll();
+})();
+</script>
+</body>
+</html>

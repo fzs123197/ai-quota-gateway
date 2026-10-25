@@ -119,6 +119,7 @@ start-local.bat
 - `upstream[].protocol`：`chat` / `responses` / `anthropic`。
 - `upstream[].price`：手动价格，单位是 `pricing.currency`；优先级最高。目录价格统一按美元/1M tokens 处理。
 - 未定价的模型会被拒绝（400）；请配置 `price`、`price_model` 或 `pricing.fallback`。
+- `config.example.json` 中 DeepSeek / GLM 的手动价格是示例估算值，请按你的实际账单调整；Qwen 使用价格目录。
 
 ## Credits 与额度方案
 
@@ -232,6 +233,14 @@ cp config.example.json config.json
 ├── README.md
 └── THIRD_PARTY_NOTICES.md
 ```
+
+## 从旧版本升级
+
+- `quota.cost` 已移除；现在 `quota.month / week / five_hour_window` 直接表示 credits。
+- 内置方案（Go/Plus/Pro/Max 10x/Max 20x）和默认方案会在启动时一次性迁移到 credits 规则；迁移后在管理台的修改会保留。
+- 旧的 token/金额额度计数不再使用，credits 用量从 0 开始；历史用量统计仍保留。
+- 自定义方案的数值不变，但语义从 token 变成 credits，请按需调整。
+- 未定价模型现在会返回 400（价格尚未加载时返回 503），请配置价格或 `pricing.fallback`。
 
 ## 已知限制
 
